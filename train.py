@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import keras
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -31,6 +32,15 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15)
 
 #Building the LSTM and Dense layers and training the model on the training dataset, as well as logging its live accuracy and loss percentage with each epoch
 
+import keras.backend as K
+@keras.saving.register_keras_serializable(package="my_package", name="custom_fn")
+def custom_activation(x):
+    sigmoid_part = K.sigmoid(x)
+    tanh_part = K.tanh(x)
+    output = sigmoid_part * tanh_part
+
+    return output
+
 log_dir = os.path.join('Logs')
 tb_callback = TensorBoard(log_dir=log_dir)
 
@@ -38,16 +48,32 @@ model = Sequential()
 model.add(LSTM(64, return_sequences=True, activation='sigmoid', input_shape=(60,258)))
 model.add(LSTM(128, return_sequences=True, activation='sigmoid'))
 model.add(LSTM(64, return_sequences=False, activation='sigmoid'))
+# model.add(LSTM(64, return_sequences=True, activation=custom_activation, input_shape=(60,258)))
+# model.add(LSTM(128, return_sequences=True, activation=custom_activation))
+# model.add(LSTM(64, return_sequences=False, activation=custom_activation))
 model.add(Dense(64, activation='relu'))
 model.add(Dense(32, activation='relu'))
 model.add(Dense(actions.shape[0], activation='softmax'))
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
 
+model2 = Sequential()
+# model.add(LSTM(64, return_sequences=True, activation='sigmoid', input_shape=(60,258)))
+# model.add(LSTM(128, return_sequences=True, activation='sigmoid'))
+# model.add(LSTM(64, return_sequences=False, activation='sigmoid'))
+model2.add(LSTM(64, return_sequences=True, activation=custom_activation, input_shape=(60,258)))
+model2.add(LSTM(128, return_sequences=True, activation=custom_activation))
+model2.add(LSTM(64, return_sequences=False, activation=custom_activation))
+model2.add(Dense(64, activation='relu'))
+model2.add(Dense(32, activation='relu'))
+model2.add(Dense(actions.shape[0], activation='softmax'))
+model2.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+
 # %tensorboard --logdir logs
-history = model.fit(X_train, y_train, epochs=500, callbacks=[tb_callback])
+history = model.fit(X_train, y_train, epochs=75, callbacks=[tb_callback])
+history2 = model2.fit(X_train, y_train, epochs=75, callbacks=[tb_callback])
 model.summary()
 
-model.save('Assets/test.h5')
+model2.save('Assets/test.keras')
 
 ytrue = np.argmax(y_test, axis=1).tolist()
 ypred = np.argmax(model.predict(X_test), axis=1).tolist()
@@ -57,18 +83,20 @@ print(accuracy_score(ytrue, ypred))
 
 from matplotlib import pyplot as plt
 
-plt.plot(history.history['categorical_accuracy'])
+plt.plot(history.history['categorical_accuracy'], color='blue')
+plt.plot(history2.history['categorical_accuracy'], color='red')
 plt.title('model accuracy')
 plt.ylabel('accuracy')
 plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
+plt.legend(['sigmoid', 'custom'], loc='upper left')
 plt.show()
 
-plt.plot(history.history['loss'])
+plt.plot(history.history['loss'], color='blue')
+plt.plot(history2.history['loss'], color='red')
 plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
+plt.legend(['sigmoid', 'custom'], loc='upper left')
 plt.show()
 
 model.save('Assets/signlangnew.h5')

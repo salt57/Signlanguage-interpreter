@@ -80,7 +80,17 @@ X = np.array(sequences)
 y = to_categorical(labels).astype(int)   
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15)
 
-model = tf.keras.models.load_model('Assets/signlangnew.h5')
+import keras.backend as K
+import keras
+@keras.saving.register_keras_serializable(package="my_package", name="custom_fn")
+def custom_activation(x):
+    sigmoid_part = K.sigmoid(x)
+    tanh_part = K.tanh(x)
+    output = sigmoid_part * tanh_part
+
+    return output
+
+model = tf.keras.models.load_model('Assets/test.keras', custom_objects={'custom_activation':custom_activation})
 print(model.summary())
 
 ytrue = np.argmax(y_test, axis=1).tolist()
@@ -90,7 +100,7 @@ print(multilabel_confusion_matrix(ytrue, ypred))
 print(accuracy_score(ytrue, ypred))
 
 #Applying the model in real time to each frame of data recieved from the user in order to detect the signs being displayed
-model = tf.keras.models.load_model('signlangnew.h5')
+# model = tf.keras.models.load_model('signlangnew.h5')
 actions = np.array(['yes', 'no', 'i love you', 'happy', 'sad'])
 sequence = []
 full = ''
@@ -144,18 +154,18 @@ with mpHolistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0
 
         if sentence != prev_sen:
             full += sentence + " "
-            tts = gTTS(sentence)
-            tts.save("Assets/output.mp3")
-            # os.system(f"say {sentence}")
-            os.system("mpg321 Assets/output.mp3")  # On Linux
-            os.system("afplay Assets/output.mp3")  # On macOS
+            # tts = gTTS(sentence)
+            # tts.save("Assets/output.mp3")
+            os.system(f"say {sentence}")
+            # os.system("mpg321 Assets/output.mp3")  # On Linux
+            # os.system("afplay Assets/output.mp3")  # On macOS
             # os.system("start Assets/output.mp3")
             prev_sen = sentence
-        if full:
-            sec = gTTS(full)
-            sec.save("Assets/full.mp3")
 
         if cv2.waitKey(10) & 0xFF == ord('q'):
+            if full:
+                sec = gTTS(full)
+                sec.save("Assets/full.mp3")
             break
     cap.release()
     cv2.destroyAllWindows()
